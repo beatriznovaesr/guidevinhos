@@ -1,17 +1,16 @@
 import flet as ft
-from bson.objectid import ObjectId
 from controller import Controller
+
 controller = Controller()
 
 class View:
     def __init__(self):
         self.conteudo_dinamico = ft.Container()
-        self.conteudo_dinamico_sugeridos = ft.Container()
+        self.conteudo_dinamico_pag_inicial = ft.Container()
         ft.app(self.main)
     
-    def handle_routes(self, page: ft.Page):
+    def define_rotas(self, page: ft.Page):
         page.clean()  
-
         if page.route == "/cadastro":
             self.pagina_cadastro(page)
         elif page.route == "/inicial":
@@ -25,10 +24,10 @@ class View:
 
         page.update() 
     
-    def handle_tap(self, e):
+    def abre_barra_busca(self, e):
       self.barra_busca.open_view()
     
-    def handle_submit(self, e):
+    def exibe_busca(self, e):
         pesquisa = self.barra_busca.value
         self.resultado = controller.busca_vinhos(pesquisa)
         self.lv.controls.clear()
@@ -85,7 +84,7 @@ class View:
                                         width=200,
                                         height=50,
                                         on_click=lambda e: controller.autenticacao(self.usuario_login.value, senha_login.value, 
-                                        self.handle_routes, self.mensagem_erro, page)
+                                        self.define_rotas, self.mensagem_erro, page)
                                         )
         
         botao_cadastro = ft.CupertinoButton(
@@ -171,7 +170,7 @@ class View:
                                     border_radius=30
                                     )  
         
-        mensagem_erro = ft.Text("", color="#EEE6E7")
+        mensagem = ft.Text("", color="#EEE6E7")
         
         botao_cadastrar = ft.ElevatedButton(
                                             text="CADASTRAR",
@@ -179,21 +178,32 @@ class View:
                                             color="#EEE6E7",
                                             width=200,
                                             height=50,
-                                            on_click=lambda e: controller.cadastra_usuario(self.nome_cadastro.value, self.usuario_cadastro.value, self.senha_cadastro.value, 
-                                            self.dlg_confirma_cadastro, mensagem_erro, page)
+                                            on_click=lambda e: controller.cadastra_usuario(self.nome_cadastro.value, self.usuario_cadastro.value, self.senha_cadastro.value,
+                                            mensagem)
                                         )
         
+        botao_voltar = ft.CupertinoButton(
+                                            content=ft.Text("Voltar", 
+                                                            color="#EEE6E7",
+                                                            style= ft.TextStyle(
+                                                                                decoration=ft.TextDecoration.UNDERLINE
+                                                                                )                   
+                                                            ),
+                                            on_click=lambda _: page.go("/login")
+                                            )
+
         container = ft.Container(
                                 content=ft.Column([
                                                     titulo_cadastro,
                                                     self.nome_cadastro,
                                                     self.usuario_cadastro,
                                                     self.senha_cadastro,
-                                                    mensagem_erro,
-                                                    botao_cadastrar
+                                                    mensagem,
+                                                    botao_cadastrar,
+                                                    botao_voltar
                                                     ],
                                                     horizontal_alignment = ft.CrossAxisAlignment.CENTER,
-                                                    spacing=30
+                                                    spacing=20
                                                 ),
                                 width=500,
                                 height=500,
@@ -209,16 +219,7 @@ class View:
                             alignment = ft.MainAxisAlignment.CENTER,
                             horizontal_alignment = ft.CrossAxisAlignment.CENTER
                             )
-                )
-    
-    def dlg_confirma_cadastro(self, page: ft.Page):
-        dlg = ft.AlertDialog(
-        title=ft.Text("Cadastro realizado!"),
-        on_dismiss=lambda _: page.go('/login')
-        )
-        page.dialog = dlg
-        dlg.open = True
-        page.update()
+                )    
 
     def pagina_inicial(self, page: ft.Page):
         page.bgcolor = "#5A0717"
@@ -233,8 +234,8 @@ class View:
                                         view_hint_text= "Busque por vinhos ou pratos",
                                         divider_color= "#A3000000",
                                         width=1200,
-                                        on_submit=self.handle_submit,
-                                        on_tap= self.handle_tap,
+                                        on_submit=self.exibe_busca,
+                                        on_tap= self.abre_barra_busca,
                                         controls=[self.lv]
                                         )   
                                     
@@ -261,7 +262,7 @@ class View:
     
         page.add(ft.Column([
                             container,
-                            self.conteudo_dinamico_sugeridos
+                            self.conteudo_dinamico_pag_inicial
                             ],
                             alignment = ft.MainAxisAlignment.CENTER,
                             horizontal_alignment = ft.CrossAxisAlignment.START,
@@ -284,13 +285,13 @@ class View:
         for sugerido in sugeridos.itertuples()
         ]
 
-        self.conteudo_dinamico_sugeridos.content = ft.Column(
+        self.conteudo_dinamico_pag_inicial.content = ft.Column(
                                                 controls=lista_sugeridos
                                                 )
-        self.conteudo_dinamico_sugeridos.update()
+        self.conteudo_dinamico_pag_inicial.update()
     
     def sessao_comentarios(self, page:ft.Page):
-        comentario = ft.TextField(label="Deixe seu comentário", 
+        self.comentario = ft.TextField(label="Deixe seu comentário", 
                                     label_style=ft.TextStyle(color="#EEE6E7"),
                                     focused_border_color="#EEE6E7",
                                     text_align="left",
@@ -300,11 +301,12 @@ class View:
                                     multiline=True)
         
         botao_enviar_comentario = ft.ElevatedButton(text="Enviar",
+                                                    style = ft.ButtonStyle(ft.TextStyle(color="#EEE6E7")),
                                                     bgcolor="#A3000000",
                                                     color="#EEE6E7",
                                                     width=300,
                                                     height=40,
-                                                    on_click = lambda e: controller.envia_comentario(self.usuario_login.value, self.vinho_id, comentario.value)
+                                                    on_click = lambda e: self.enviar_comentario(page)
                                                     )
 
         self.lista_comentarios = ft.ListView(expand=True, spacing=5, padding=10)
@@ -312,19 +314,25 @@ class View:
         
         bs = ft.BottomSheet(
                             content = ft.Container(
-                                                    content = ft.Column(controls=[comentario,
+                                                    content = ft.Column(controls=[self.comentario,
                                                                                 botao_enviar_comentario,
                                                                                 self.lista_comentarios])
-                            )
+                            ),
+                            bgcolor="#5A0717"
         )
 
         return bs
+    
+    def enviar_comentario(self, page: ft.Page):
+        controller.envia_comentario(self.usuario_login.value, self.vinho_id, self.comentario.value)
+        self.comentario.value = ""  
+        self.atualizar_lista_comentarios(page)
+        page.update()
     
     def atualizar_lista_comentarios(self, page:ft.Page):
         self.lista_comentarios.controls.clear()
         comentarios = controller.retorna_comentarios(self.vinho_id)
         lista_comentarios = comentarios.get('comentarios', []) 
-        print('view',lista_comentarios)
         for c in lista_comentarios:
             self.lista_comentarios.controls.append(
                 ft.Container(
@@ -334,7 +342,6 @@ class View:
                     ], spacing=2),
                     padding=10,
                     ),
-                    
                 )
 
     def pagina_exibe_vinho(self, vinho, page: ft.Page):
@@ -344,8 +351,9 @@ class View:
         
         if "_1" in vinho:
                     vinho["_id"] = vinho.pop("_1")
+
         self.vinho_id = vinho.get('_id')
-        estado_fav = controller.verificar_estado_fav_icon(self.usuario_login.value, vinho.get('_id'))
+        self.estado_fav = controller.verificar_estado_fav_icon(self.usuario_login.value, vinho.get('_id'))
         bs = self.sessao_comentarios(page)
 
         vinhoDet = ft.Container (content=ft.Column([
@@ -359,9 +367,7 @@ class View:
                                                     width=800,
                                                     height=500,
                                                     bgcolor="#A3000000",
-                                                    border_radius=30
-                                                    
-                                                
+                                                    border_radius=30                                                                                                 
                                 )
         harmonizacao = ft.Container (content=ft.Column([
                                                         ft.Text(f"\n  Harmonização: {vinho.get('harmonizacao')}", color=cor_texto)
@@ -372,38 +378,47 @@ class View:
                                     border_radius=30
                                     )
         
-        botao_comentarios = ft.ElevatedButton(text="Visualizar Comentários",
-                                            bgcolor="#A3000000",
-                                            color="#EEE6E7",
-                                            width=300,
-                                            height=40,
-                                            on_click=lambda e: page.open(bs)
-                                            
-                                            )
+        botao_comentarios = ft.ElevatedButton(
+                                              text="Visualizar Comentários",
+                                              bgcolor="#A3000000",
+                                              color="#EEE6E7",
+                                              width=300,
+                                              height=40,
+                                              on_click=lambda e: page.open(bs)
+                                             )
         
-        botao_favoritar = ft.Container(content=ft.Column([
-                                        ft.IconButton(
-                                        icon=ft.cupertino_icons.HEART,
-                                        icon_color="#A3000000",
-                                        selected_icon=ft.cupertino_icons.HEART_FILL,
-                                        selected_icon_color="#A3000000",
-                                        selected= estado_fav,
-                                        icon_size=40,
-                                        tooltip="Favoritar vinho",
-                                        on_click=lambda e: controller.handle_click(self.usuario_login.value, vinho.get('_id'), e)
-                                    ) ]),
-                                    height=500
-        )
+        self.botao_favoritar = ft.IconButton(
+                                             icon=ft.cupertino_icons.HEART,
+                                             icon_color="#A3000000",
+                                             selected_icon=ft.cupertino_icons.HEART_FILL,
+                                             selected_icon_color="#A3000000",
+                                             selected= self.estado_fav,
+                                             icon_size=40,
+                                             tooltip="Favoritar vinho",
+                                             on_click=lambda e: self.enviar_favorito(page,e)
+                                            ) 
+        
+        botao_voltar = ft.IconButton(
+                                     icon=ft.cupertino_icons.BACK,
+                                     icon_color="#A3000000",
+                                     icon_size=40,
+                                     tooltip="Voltar",
+                                     on_click=lambda _: self.exibe_sugeridos(page)
+                                    )
+
+        self.botao_favoritar_container = ft.Container(content=ft.Column([self.botao_favoritar,
+                                                                         botao_voltar]),
+                                                      height=500
+                                                     )
         
         conteudo_principal = ft.Row([vinhoDet,
                                     harmonizacao,
-                                    botao_favoritar],
+                                    self.botao_favoritar_container],
                                     spacing= 40,
                                     vertical_alignment= ft.MainAxisAlignment.START
-                                )
+                                   )
         
-
-        self.conteudo_dinamico_sugeridos.content = ft.Container(
+        self.conteudo_dinamico_pag_inicial.content = ft.Container(
                                                     content=ft.Column([
                                                                         conteudo_principal,
                                                                         botao_comentarios],
@@ -412,8 +427,13 @@ class View:
                                                     
                                                     )
         
-        page.add(self.conteudo_dinamico_sugeridos)
-        self.conteudo_dinamico_sugeridos.update()
+        page.add(self.conteudo_dinamico_pag_inicial)
+        self.conteudo_dinamico_pag_inicial.update()
+
+    def enviar_favorito(self, page:ft.Page, e):        
+        controller.envia_favorito(self.usuario_login.value, self.vinho_id, e)
+        self.botao_favoritar.selected = not self.botao_favoritar.selected  
+        self.botao_favoritar.update()
 
     def pagina_perfil(self, page: ft.Page):
         page.bgcolor = "#5A0717"
@@ -572,6 +592,6 @@ class View:
         self.conteudo_dinamico.update()
         
     def main(self, page: ft.Page):
-        page.on_route_change = lambda _: self.handle_routes(page)  
+        page.on_route_change = lambda _: self.define_rotas(page)  
         page.go(page.route) 
 

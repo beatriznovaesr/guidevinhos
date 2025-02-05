@@ -86,7 +86,6 @@ class DB:
     )
 
     def verificar_vinho_favorito(self, usuario, vinho_id):
-        print(f"Buscando vinho {vinho_id} para o usuário {usuario}")
         resultado = self.bd.usuarios.find_one(
             {
                 "user": usuario,
@@ -116,7 +115,6 @@ class DB:
             {"_id": ObjectId(vinho_id)},
             {"$addToSet": {"comentarios": comentario}}  
         )
-        print(comentario)
     
     def retorna_comentarios(self, vinho_id):
         resultado = self.bd.vinhos.find_one({"_id": ObjectId(vinho_id)}, {"comentarios": 1})
